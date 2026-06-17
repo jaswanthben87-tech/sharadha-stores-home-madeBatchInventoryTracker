@@ -44,6 +44,8 @@ def send_email_alert(recipient, message, html_message=None):
     # Dynamically load/reload .env to get the latest credentials instantly
     sender = None
     password = None
+    resend_api_key = None
+    brevo_api_key = None
     dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
     if os.path.exists(dotenv_path):
         try:
@@ -59,6 +61,10 @@ def send_email_alert(recipient, message, html_message=None):
                                 sender = val
                             elif key == 'SMTP_PASSWORD':
                                 password = val
+                            elif key == 'RESEND_API_KEY':
+                                resend_api_key = val
+                            elif key == 'BREVO_API_KEY':
+                                brevo_api_key = val
         except Exception as e:
             print(f"Error reading .env dynamically: {str(e)}")
             
@@ -67,8 +73,71 @@ def send_email_alert(recipient, message, html_message=None):
         sender = os.environ.get('SMTP_EMAIL')
     if not password:
         password = os.environ.get('SMTP_PASSWORD')
+    if not resend_api_key:
+        resend_api_key = os.environ.get('RESEND_API_KEY')
+    if not brevo_api_key:
+        brevo_api_key = os.environ.get('BREVO_API_KEY')
         
+    subject = "Sharadha Stores Batch Tracker Alert"
+
+    # Try Resend HTTP API first (preferred in production / Render)
+    if resend_api_key:
+        try:
+            import requests
+            url = "https://api.resend.com/emails"
+            headers = {
+                "Authorization": f"Bearer {resend_api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "from": "Sharadha Stores <onboarding@resend.dev>",
+                "to": [recipient],
+                "subject": subject,
+                "html": html_message or message
+            }
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            if resp.ok:
+                print(f"Successfully sent email to {recipient} via Resend HTTP API.")
+                return
+            else:
+                print(f"Resend HTTP API Error: {resp.text}")
+        except Exception as e:
+            print(f"Resend HTTP API Send Error: {str(e)}")
+
+    # Try Brevo HTTP API (alternative preferred in production / Render)
+    if brevo_api_key:
+        try:
+            import requests
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "api-key": brevo_api_key,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "sender": {
+                    "name": "Sharadha Stores",
+                    "email": sender or "sharadhastores4@gmail.com"
+                },
+                "to": [
+                    {
+                        "email": recipient
+                    }
+                ],
+                "subject": subject,
+                "htmlContent": html_message or message
+            }
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            if resp.ok:
+                print(f"Successfully sent email to {recipient} via Brevo HTTP API.")
+                return
+            else:
+                print(f"Brevo HTTP API Error: {resp.text}")
+        except Exception as e:
+            print(f"Brevo HTTP API Send Error: {str(e)}")
+
+    # Fallback to Gmail SMTP Server using SSL (port 465)
     if not sender or not password:
+        print("SMTP credentials not configured. Skipping fallback SMTP email.")
         return
         
     try:
@@ -76,7 +145,7 @@ def send_email_alert(recipient, message, html_message=None):
         from email.mime.text import MIMEText
         
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = Header('Sharadha Stores Batch Tracker Alert', 'utf-8')
+        msg['Subject'] = Header(subject, 'utf-8')
         msg['From'] = sender
         msg['To'] = recipient
         
@@ -107,7 +176,6 @@ def send_email_alert(recipient, message, html_message=None):
         part2 = MIMEText(html_message, 'html', 'utf-8')
         msg.attach(part2)
         
-        # Connect to Gmail SMTP Server using SSL (port 465)
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=5)
         server.login(sender, password)
         server.sendmail(sender, [recipient], msg.as_string())
@@ -373,6 +441,28 @@ def update_all_batch_statuses(conn, current_date=None):
     check_and_trigger_alerts(conn)
 
 def check_and_trigger_alerts(conn):
+    # Determine the recipient email address dynamically
+    alert_email = "sharadhastores4@gmail.com"
+    dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    if os.path.exists(dotenv_path):
+        try:
+            with open(dotenv_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        parts = line.split('=', 1)
+                        if len(parts) == 2:
+                            if parts[0].strip() == 'ALERT_EMAIL':
+                                alert_email = parts[1].strip().strip('\"\'')
+        except Exception as e:
+            print(f"Error reading ALERT_EMAIL dynamically: {str(e)}")
+            
+    # Fallback to system environment variable (e.g. on Render)
+    if not alert_email or alert_email == "sharadhastores4@gmail.com":
+        env_email = os.environ.get('ALERT_EMAIL')
+        if env_email:
+            alert_email = env_email
+
     # 1. Check Low Stock for all products
     try:
         cur = conn.cursor()
@@ -403,7 +493,7 @@ def check_and_trigger_alerts(conn):
                     conn.execute("""
                         INSERT INTO notifications_log (recipient, channel, message) 
                         VALUES (?, 'Email', ?)
-                    """, ("sharadhastores4@gmail.com", alert_key))
+                    """, (alert_email, alert_key))
                     conn.commit()
                     
                     # Professional WhatsApp plain text message
@@ -452,7 +542,7 @@ def check_and_trigger_alerts(conn):
                     </html>
                     """
                     
-                    send_email_alert_async("sharadhastores4@gmail.com", whatsapp_msg, html_msg)
+                    send_email_alert_async(alert_email, whatsapp_msg, html_msg)
     except Exception as e:
         print(f"Error in Low Stock checks: {str(e)}")
 
@@ -593,10 +683,10 @@ def check_and_trigger_alerts(conn):
                 conn.execute("""
                     INSERT INTO notifications_log (recipient, channel, message) 
                     VALUES (?, 'Email', ?)
-                """, ("sharadhastores4@gmail.com", alert_key))
+                """, (alert_email, alert_key))
                 conn.commit()
                 
-                send_email_alert_async("sharadhastores4@gmail.com", whatsapp_msg, html_msg)
+                send_email_alert_async(alert_email, whatsapp_msg, html_msg)
     except Exception as e:
         print(f"Error in Expiry checks: {str(e)}")
 
