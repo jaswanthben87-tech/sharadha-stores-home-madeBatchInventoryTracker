@@ -390,8 +390,8 @@ export default function App() {
       const user = currentUser;
       
       if (!user) {
-        if (path !== '/login') {
-          window.history.replaceState(null, '', '/login');
+        if (path !== '/') {
+          window.history.replaceState(null, '', '/');
         }
         return;
       }
