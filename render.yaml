@@ -1,0 +1,35 @@
+services:
+  # 1. Flask Backend Service
+  - type: web
+    name: sharadha-stores-backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt && python backend/seed.py
+    startCommand: gunicorn --chdir backend app:app
+    envVars:
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+
+  # 2. Vite React Frontend Service (Static Site)
+  - type: web
+    name: sharadha-stores-frontend
+    env: static
+    buildCommand: npm install --prefix frontend && npm run build --prefix frontend
+    staticPublishPath: frontend/dist
+    # Render static sites require prefixing the build path if subfolders are used
+    headers:
+      - path: /*
+        headers:
+          - key: Cache-Control
+            value: max-age=31536000
+    routes:
+      # Proxy /api requests to the backend service
+      - type: rewrite
+        source: /api/*
+        # NOTE: Replace 'sharadha-stores-backend' with your actual backend service name or URL
+        destination: https://sharadha-stores-backend.onrender.com/api/*
+      # Single Page Application routing fallback
+      - type: rewrite
+        source: /*
+        destination: /index.html
