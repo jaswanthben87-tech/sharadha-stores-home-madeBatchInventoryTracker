@@ -2447,5 +2447,6 @@ if __name__ == '__main__':
         threading.Thread(target=run_background_scheduler, daemon=True).start()
         print("Background Scheduler Started.")
         
-    # Run the dev server on port 5000
-    app.run(debug=True, port=5000)
+    # Run the dev server on port 5001
+    app.run(debug=True, port=5001)
+

@@ -2,7 +2,7 @@ Write-Host "====================================================================
 Write-Host "Starting Sharadha Stores Batch Inventory Tracker..." -ForegroundColor Green
 Write-Host "====================================================================" -ForegroundColor Green
 
-Write-Host "Launching Flask Backend on port 5000..." -ForegroundColor Yellow
+Write-Host "Launching Flask Backend on port 5001..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; python app.py"
 
 Write-Host "Launching Vite React Frontend on port 5173..." -ForegroundColor Yellow
