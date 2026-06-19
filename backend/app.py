@@ -16,9 +16,16 @@ CORS(app)
 
 @app.teardown_appcontext
 def close_db_connection(exception):
+    from db import IS_POSTGRES, IS_MYSQL
     db = g.pop('db', None)
     if db is not None:
-        db.close()
+        if hasattr(db, 'close') and (IS_POSTGRES or IS_MYSQL):
+            try:
+                db.close(force=True)
+            except Exception:
+                pass
+        else:
+            db.close()
 
 @app.after_request
 def add_header(response):
@@ -491,16 +498,17 @@ def check_and_trigger_alerts(conn):
                 FROM food_batches 
                 WHERE product_id = ? AND status IN ('Active', 'Near Expiry')
             """, (p_id,)).fetchone()
-            total_stock = stock_row['total_stock'] or 0
+            total_stock = int(stock_row['total_stock'] or 0)
             if total_stock < 5:
                 # Unique plain text key for duplicate check and database logging
                 alert_key = f"Low Stock Alert: '{p_name}' total stock is at {total_stock} units. Safety threshold is 5!"
                 
                 # Check duplicate in last 24 hours
+                one_day_ago = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
                 dup = conn.execute("""
                     SELECT 1 FROM notifications_log 
-                    WHERE message = ? AND sent_at >= datetime('now', '-1 day')
-                """, (alert_key,)).fetchone()
+                    WHERE message = ? AND sent_at >= ?
+                """, (alert_key, one_day_ago)).fetchone()
                 
                 if not dup:
                     # Log to DB log
@@ -688,10 +696,11 @@ def check_and_trigger_alerts(conn):
                 """
             
             # Check duplicate in last 24 hours
+            one_day_ago = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
             dup = conn.execute("""
                 SELECT 1 FROM notifications_log 
-                WHERE message = ? AND sent_at >= datetime('now', '-1 day')
-            """, (alert_key,)).fetchone()
+                WHERE message = ? AND sent_at >= ?
+            """, (alert_key, one_day_ago)).fetchone()
             
             if not dup:
                 conn.execute("""
@@ -971,7 +980,7 @@ def get_products():
                 FROM food_batches 
                 WHERE product_id = ? AND status IN ('Active', 'Near Expiry')
             """, (p_id,)).fetchone()
-            p_dict['total_stock'] = stock_row['total_stock'] or 0
+            p_dict['total_stock'] = int(stock_row['total_stock'] or 0)
             
             results.append(p_dict)
             
@@ -1613,7 +1622,7 @@ def get_dashboard_summary():
                 WHERE product_id = ? AND status IN ('Active', 'Near Expiry')
             """, (p_id,)).fetchone()
             
-            total_stock = stock_row['total_stock'] or 0
+            total_stock = int(stock_row['total_stock'] or 0)
             if total_stock < 5:
                 low_stock_indicators.append({
                     "product_id": p_id,
@@ -1636,7 +1645,7 @@ def get_dashboard_summary():
                 FROM order_items 
                 WHERE product_id = ?
             """, (p_id,)).fetchone()
-            total_sold = sold_row['total_sold'] or 0
+            total_sold = int(sold_row['total_sold'] or 0)
             
             # Seed mock depletion velocity if no actual orders yet to demonstrate the chart/logic
             # (e.g. assume average sales rate of 1.2 units per day for pickle, 2.5 for sweets)
@@ -1658,7 +1667,7 @@ def get_dashboard_summary():
                 FROM food_batches 
                 WHERE product_id = ? AND status IN ('Active', 'Near Expiry')
             """, (p_id,)).fetchone()
-            current_stock = stock_row['total_stock'] or 0
+            current_stock = int(stock_row['total_stock'] or 0)
             
             # Days of stock remaining
             days_stock_remaining = round(current_stock / depletion_rate, 1) if depletion_rate > 0 else 999
@@ -1695,15 +1704,15 @@ def get_dashboard_summary():
             
         # Query total revenue generated (only count Paid/fulfilled orders)
         revenue_row = conn.execute("SELECT SUM(total_amount) as total_revenue FROM orders WHERE status = 'Paid'").fetchone()
-        total_revenue = round(revenue_row['total_revenue'] or 0.0, 2)
+        total_revenue = round(float(revenue_row['total_revenue'] or 0.0), 2)
 
         summary = {
-            "total_batches": counters["total_batches"] or 0,
-            "total_active_stock": counters["total_active_stock"] or 0,
-            "expired_wastage_units": counters["expired_wastage_units"] or 0,
-            "near_expiry_batches_count": counters["near_expiry_batches_count"] or 0,
-            "expired_batches_count": counters["expired_batches_count"] or 0,
-            "active_batches_count": counters["active_batches_count"] or 0,
+            "total_batches": int(counters["total_batches"] or 0),
+            "total_active_stock": int(counters["total_active_stock"] or 0),
+            "expired_wastage_units": int(counters["expired_wastage_units"] or 0),
+            "near_expiry_batches_count": int(counters["near_expiry_batches_count"] or 0),
+            "expired_batches_count": int(counters["expired_batches_count"] or 0),
+            "active_batches_count": int(counters["active_batches_count"] or 0),
             "near_expiry_list": [dict(b) for b in near_expiry_batches],
             "low_stock_list": low_stock_indicators,
             "depletion_forecasts": depletion_forecasts,
@@ -1971,7 +1980,7 @@ def fulfill_order(order_id):
                     WHERE product_id = ? AND status IN ('Active', 'Near Expiry')
                 """, (p_id,)).fetchone()
                 
-                total_stock = stock_row['total_stock'] or 0
+                total_stock = int(stock_row['total_stock'] or 0)
                 if total_stock < 5:
                     alert_txt = f"Low Stock Alert: '{p_name}' total stock is at {total_stock} units. Safety threshold is 5!"
                     

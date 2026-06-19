@@ -18,11 +18,28 @@ IS_MYSQL = 'mysql' in DATABASE_URL.lower()
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tracker.db')
 
 # Conditional imports
+mysql_pool = None
+
 if IS_POSTGRES:
     import psycopg2
     from psycopg2.extras import RealDictCursor
 elif IS_MYSQL:
     import mysql.connector
+    from mysql.connector.pooling import MySQLConnectionPool
+    try:
+        parsed = urlparse(DATABASE_URL)
+        pool_config = {
+            'host': parsed.hostname,
+            'user': parsed.username,
+            'password': parsed.password,
+            'port': parsed.port or 3306,
+            'database': parsed.path.lstrip('/'),
+            'pool_name': 'sharadha_mysql_pool',
+            'pool_size': 5
+        }
+        mysql_pool = MySQLConnectionPool(**pool_config)
+    except Exception as e:
+        print(f"Error initializing MySQL Connection Pool: {e}")
 
 class SQLiteConnectionWrapper:
     def __init__(self, conn):
@@ -72,8 +89,8 @@ class PostgresConnectionWrapper:
         self._conn = conn
     def __getattr__(self, name):
         return getattr(self._conn, name)
-    def close(self):
-        if not has_app_context():
+    def close(self, force=False):
+        if force or not has_app_context():
             self._conn.close()
     def cursor(self, *args, **kwargs):
         from psycopg2.extras import RealDictCursor
@@ -98,8 +115,8 @@ class MySQLConnectionWrapper:
         self._conn = conn
     def __getattr__(self, name):
         return getattr(self._conn, name)
-    def close(self):
-        if not has_app_context():
+    def close(self, force=False):
+        if force or not has_app_context():
             self._conn.close()
     def cursor(self, *args, **kwargs):
         kwargs.setdefault('dictionary', True)
@@ -126,6 +143,13 @@ def connect_postgres():
     return psycopg2.connect(url)
 
 def connect_mysql():
+    global mysql_pool
+    if mysql_pool is not None:
+        try:
+            return mysql_pool.get_connection()
+        except Exception as e:
+            print(f"Failed to get pooled connection: {e}")
+            
     parsed = urlparse(DATABASE_URL)
     config = {
         'host': parsed.hostname,
