@@ -5,8 +5,12 @@ import os
 import re
 from urllib.parse import urlparse, parse_qs
 from flask import has_app_context, g
+from dotenv import load_dotenv
 
 # Helper flags
+dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+load_dotenv(dotenv_path)
+
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 IS_POSTGRES = 'postgres' in DATABASE_URL.lower()
 IS_MYSQL = 'mysql' in DATABASE_URL.lower()
@@ -31,6 +35,34 @@ class SQLiteConnectionWrapper:
         if not has_app_context():
             self._conn.close()
 
+class PostgresCursorWrapper:
+    def __init__(self, cursor):
+        self._cursor = cursor
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+    def execute(self, query, vars=None):
+        if query:
+            query = query.replace('?', '%s')
+        return self._cursor.execute(query, vars)
+    def executemany(self, query, vars_list):
+        if query:
+            query = query.replace('?', '%s')
+        return self._cursor.executemany(query, vars_list)
+
+class MySQLCursorWrapper:
+    def __init__(self, cursor):
+        self._cursor = cursor
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+    def execute(self, query, args=None):
+        if query:
+            query = query.replace('?', '%s')
+        return self._cursor.execute(query, args)
+    def executemany(self, query, args_list):
+        if query:
+            query = query.replace('?', '%s')
+        return self._cursor.executemany(query, args_list)
+
 class PostgresConnectionWrapper:
     def __init__(self, conn):
         self._conn = conn
@@ -42,15 +74,19 @@ class PostgresConnectionWrapper:
     def cursor(self, *args, **kwargs):
         from psycopg2.extras import RealDictCursor
         kwargs.setdefault('cursor_factory', RealDictCursor)
-        return self._conn.cursor(*args, **kwargs)
+        raw_cursor = self._conn.cursor(*args, **kwargs)
+        return PostgresCursorWrapper(raw_cursor)
     def execute(self, query, args=()):
         cur = self.cursor()
-        translated_query = query.replace('?', '%s')
-        cur.execute(translated_query, args)
+        cur.execute(query, args)
         return cur
     def executescript(self, script):
         cur = self._conn.cursor()
-        cur.execute(script)
+        for statement in script.split(';'):
+            stmt_clean = statement.strip()
+            if stmt_clean:
+                stmt_clean = stmt_clean.replace('?', '%s')
+                cur.execute(stmt_clean)
         cur.close()
 
 class MySQLConnectionWrapper:
@@ -63,17 +99,19 @@ class MySQLConnectionWrapper:
             self._conn.close()
     def cursor(self, *args, **kwargs):
         kwargs.setdefault('dictionary', True)
-        return self._conn.cursor(*args, **kwargs)
+        kwargs.setdefault('buffered', True)
+        raw_cursor = self._conn.cursor(*args, **kwargs)
+        return MySQLCursorWrapper(raw_cursor)
     def execute(self, query, args=()):
         cur = self.cursor()
-        translated_query = query.replace('?', '%s')
-        cur.execute(translated_query, args)
+        cur.execute(query, args)
         return cur
     def executescript(self, script):
         cur = self._conn.cursor()
         for statement in script.split(';'):
             stmt_clean = statement.strip()
             if stmt_clean:
+                stmt_clean = stmt_clean.replace('?', '%s')
                 cur.execute(stmt_clean)
         cur.close()
 
@@ -92,14 +130,6 @@ def connect_mysql():
         'port': parsed.port or 3306,
         'database': parsed.path.lstrip('/')
     }
-    
-    # Extract SSL parameters if present in the query string
-    query = parse_qs(parsed.query)
-    if 'ssl-mode' in query:
-        config['ssl_mode'] = query['ssl-mode'][0]
-    elif 'ssl_mode' in query:
-        config['ssl_mode'] = query['ssl_mode'][0]
-        
     conn = mysql.connector.connect(**config)
     return conn
 
@@ -147,54 +177,66 @@ def init_db():
             conn.executescript(schema_sql)
         elif IS_MYSQL:
             schema_sql = re.sub(r'INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT', 'INTEGER PRIMARY KEY AUTO_INCREMENT', schema_sql, flags=re.IGNORECASE)
+            schema_sql = re.sub(r'TEXT\s+NOT\s+NULL\s+UNIQUE', 'VARCHAR(255) NOT NULL UNIQUE', schema_sql, flags=re.IGNORECASE)
+            schema_sql = re.sub(r'TEXT\s+DEFAULT\s+CURRENT_TIMESTAMP', 'DATETIME DEFAULT CURRENT_TIMESTAMP', schema_sql, flags=re.IGNORECASE)
+            schema_sql = re.sub(r'TEXT(\s+NOT\s+NULL)?\s+DEFAULT', r'VARCHAR(255)\1 DEFAULT', schema_sql, flags=re.IGNORECASE)
             conn.executescript(schema_sql)
         else:
             conn.executescript(schema_sql)
             
         # Ensure password column exists in customers table
         try:
-            conn.execute("SELECT password FROM customers LIMIT 1")
+            cur = conn.execute("SELECT password FROM customers LIMIT 1")
+            cur.fetchall()
+            cur.close()
         except Exception:
             if IS_POSTGRES or IS_MYSQL:
                 conn.rollback()
-            conn.execute("ALTER TABLE customers ADD COLUMN password TEXT NOT NULL DEFAULT 'customerpassword'")
+            cur = conn.execute("ALTER TABLE customers ADD COLUMN password VARCHAR(255) NOT NULL DEFAULT 'customerpassword'")
+            cur.close()
             conn.commit()
             
         # Create admin_credentials table if not exists and seed default admin
         if IS_POSTGRES:
-            conn.execute("""
+            cur = conn.execute("""
                 CREATE TABLE IF NOT EXISTS admin_credentials (
                     username TEXT PRIMARY KEY,
                     password TEXT NOT NULL
                 );
             """)
-            conn.execute("""
+            cur.close()
+            cur = conn.execute("""
                 INSERT INTO admin_credentials (username, password)
                 VALUES ('admin@sharadhastores.com', 'adminpassword')
                 ON CONFLICT (username) DO NOTHING;
             """)
+            cur.close()
         elif IS_MYSQL:
-            conn.execute("""
+            cur = conn.execute("""
                 CREATE TABLE IF NOT EXISTS admin_credentials (
                     username VARCHAR(255) PRIMARY KEY,
                     password TEXT NOT NULL
                 );
             """)
-            conn.execute("""
+            cur.close()
+            cur = conn.execute("""
                 INSERT IGNORE INTO admin_credentials (username, password)
                 VALUES ('admin@sharadhastores.com', 'adminpassword');
             """)
+            cur.close()
         else:
-            conn.execute("""
+            cur = conn.execute("""
                 CREATE TABLE IF NOT EXISTS admin_credentials (
                     username TEXT PRIMARY KEY,
                     password TEXT NOT NULL
                 );
             """)
-            conn.execute("""
+            cur.close()
+            cur = conn.execute("""
                 INSERT OR IGNORE INTO admin_credentials (username, password)
                 VALUES ('admin@sharadhastores.com', 'adminpassword');
             """)
+            cur.close()
         conn.commit()
     finally:
         conn.close()
