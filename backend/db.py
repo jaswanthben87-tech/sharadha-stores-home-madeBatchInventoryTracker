@@ -57,10 +57,14 @@ class MySQLCursorWrapper:
     def execute(self, query, args=None):
         if query:
             query = query.replace('?', '%s')
+            if "BEGIN TRANSACTION" in query.upper():
+                query = re.sub(r'BEGIN\s+TRANSACTION', 'START TRANSACTION', query, flags=re.IGNORECASE)
         return self._cursor.execute(query, args)
     def executemany(self, query, args_list):
         if query:
             query = query.replace('?', '%s')
+            if "BEGIN TRANSACTION" in query.upper():
+                query = re.sub(r'BEGIN\s+TRANSACTION', 'START TRANSACTION', query, flags=re.IGNORECASE)
         return self._cursor.executemany(query, args_list)
 
 class PostgresConnectionWrapper:
