@@ -16,16 +16,13 @@ CORS(app)
 
 @app.teardown_appcontext
 def close_db_connection(exception):
-    from db import IS_POSTGRES, IS_MYSQL
     db = g.pop('db', None)
     if db is not None:
-        if hasattr(db, 'close') and (IS_POSTGRES or IS_MYSQL):
+        if hasattr(db, 'close'):
             try:
                 db.close(force=True)
             except Exception:
                 pass
-        else:
-            db.close()
 
 @app.after_request
 def add_header(response):
