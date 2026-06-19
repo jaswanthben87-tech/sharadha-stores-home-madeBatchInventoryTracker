@@ -5,14 +5,47 @@ import datetime
 
 def seed_data():
     # Drop all existing tables to allow clean re-seeding
+    from db import IS_POSTGRES, IS_MYSQL
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("PRAGMA foreign_keys = OFF;")
-    tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';").fetchall()
-    for table in tables:
-        cursor.execute(f"DROP TABLE IF EXISTS [{table[0]}];")
-    cursor.execute("PRAGMA foreign_keys = ON;")
-    conn.commit()
+    
+    if IS_POSTGRES:
+        try:
+            cursor.execute("DROP SCHEMA IF EXISTS public CASCADE;")
+            cursor.execute("CREATE SCHEMA public;")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+            """)
+            tables = cursor.fetchall()
+            for table in tables:
+                tname = table[0] if isinstance(table, (list, tuple)) else table['table_name']
+                cursor.execute(f'DROP TABLE IF EXISTS "{tname}" CASCADE;')
+            conn.commit()
+    elif IS_MYSQL:
+        try:
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
+            cursor.execute("SHOW TABLES;")
+            tables = cursor.fetchall()
+            for table in tables:
+                tname = table[0] if isinstance(table, (list, tuple)) else list(table.values())[0]
+                cursor.execute(f"DROP TABLE IF EXISTS `{tname}`;")
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+    else:
+        cursor.execute("PRAGMA foreign_keys = OFF;")
+        tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';").fetchall()
+        for table in tables:
+            cursor.execute(f"DROP TABLE IF EXISTS [{table[0]}];")
+        cursor.execute("PRAGMA foreign_keys = ON;")
+        conn.commit()
+        
     cursor.close()
     conn.close()
 

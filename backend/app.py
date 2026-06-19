@@ -1,6 +1,6 @@
 # Flask backend application for Sharadha Stores Homemade Food Product Batch Inventory Tracker
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import datetime
 import os
@@ -13,6 +13,20 @@ from db import get_db, query_db, execute_db, init_db
 app = Flask(__name__)
 # Enable CORS for cross-origin React frontend requests
 CORS(app)
+
+@app.teardown_appcontext
+def close_db_connection(exception):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+@app.after_request
+def add_header(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 
 # Load environment variables manually from .env file if it exists
 dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')

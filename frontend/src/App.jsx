@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import logoImg from './assets/logo.png'
 
 const getDefaultUnit = (dbUnit) => {
@@ -118,7 +118,7 @@ const parseAddressBook = (addressFieldVal) => {
     if (Array.isArray(book)) {
       return book;
     }
-  } catch (e) {
+  } catch {
     // Plain text / legacy address fallback
     const parsed = parseAddress(addressFieldVal);
     return [{
@@ -134,7 +134,20 @@ const parseAddressBook = (addressFieldVal) => {
   return [];
 };
 
+// Standalone unique ID generator declared outside the React component
+let addressIdCounter = 0;
+const generateUniqueId = () => {
+  return Date.now() + (addressIdCounter++);
+};
+
 export default function App() {
+  // Toast notifications helper hoisted to top of component to prevent TDZ access errors
+  const [toast, setToast] = useState(null)
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 4000)
+  }, [])
+
   // Credentials States
   const [loginUsername, setLoginUsername] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
@@ -197,16 +210,10 @@ export default function App() {
     }
   })
 
-  // Address Book States and Handlers
-  const [addressBook, setAddressBook] = useState([])
-  
-  useEffect(() => {
-    if (currentUser) {
-      setAddressBook(parseAddressBook(currentUser.address || ''))
-    } else {
-      setAddressBook([])
-    }
-  }, [currentUser])
+  // Address Book derived from currentUser
+  const addressBook = useMemo(() => {
+    return currentUser ? parseAddressBook(currentUser.address || '') : [];
+  }, [currentUser]);
 
   const saveAddressBook = async (newBook) => {
     const serialized = JSON.stringify(newBook)
@@ -230,12 +237,11 @@ export default function App() {
         }
         localStorage.setItem('currentUser', JSON.stringify(updatedUser))
         setCurrentUser(updatedUser)
-        setAddressBook(newBook)
         showToast('Address book updated successfully!', 'success')
       } else {
         showToast(data.error || 'Failed to update address book.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during address book update.', 'danger')
     }
   }
@@ -275,7 +281,7 @@ export default function App() {
     let newBook = [...addressBook]
     if (editingAddressId === null) {
       const newAddr = {
-        id: Date.now(),
+        id: generateUniqueId(),
         flat: addressFormFlat.trim(),
         area: addressFormArea.trim(),
         pincode: addressFormPincode.trim(),
@@ -337,7 +343,7 @@ export default function App() {
     }
 
     const newAddr = {
-      id: Date.now(),
+      id: generateUniqueId(),
       flat: cartFormFlat.trim(),
       area: cartFormArea.trim(),
       pincode: cartFormPincode.trim(),
@@ -375,7 +381,7 @@ export default function App() {
       if (user && user.role === 'admin') {
         return 'admin'
       }
-    } catch {}
+    } catch { /* ignore */ }
     return 'ecommerce'
   })
 
@@ -459,10 +465,21 @@ export default function App() {
       window.history.pushState(null, '', expectedPath);
     }
   }, [activeTab, currentUser]);
-  const [adminSubTab, setAdminSubTab] = useState('dashboard') // 'dashboard' | 'orders' | 'batches' | 'catalog' | 'simulations' | 'alerts' | 'analytics'
+  const [adminSubTab, setAdminSubTab] = useState(() => {
+    try {
+      const savedSubTab = sessionStorage.getItem('adminSubTab')
+      if (savedSubTab) return savedSubTab
+    } catch { /* ignore */ }
+    return 'dashboard'
+  }) // 'dashboard' | 'orders' | 'batches' | 'catalog' | 'simulations' | 'alerts' | 'analytics'
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('adminSubTab', adminSubTab)
+    } catch { /* ignore */ }
+  }, [adminSubTab])
   const [hoveredDailyPoint, setHoveredDailyPoint] = useState(null) // { x, y, day, revenue, orders }
   const [hoveredMonthlyBar, setHoveredMonthlyBar] = useState(null) // { x, y, month, revenue, orders }
-  const [toast, setToast] = useState(null)
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   
@@ -472,10 +489,8 @@ export default function App() {
   const [batches, setBatches] = useState([])
   const [ingredients, setIngredients] = useState([])
   const [dashboardSummary, setDashboardSummary] = useState(null)
-  const [suggestions, setSuggestions] = useState([])
   const [notifications, setNotifications] = useState([])
   const [orders, setOrders] = useState([])
-  const [subscriptionsList, setSubscriptionsList] = useState([])
   const [selectedPrices, setSelectedPrices] = useState({}) // product_id -> selected price index
   
   // AI Assistant States
@@ -508,7 +523,7 @@ export default function App() {
     if (!text) return;
 
     const userMsg = {
-      id: Date.now(),
+      id: generateUniqueId(),
       sender: 'user',
       text: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -636,7 +651,7 @@ export default function App() {
       }
 
       setAiMessagesAdmin(prev => [...prev, {
-        id: Date.now(),
+        id: generateUniqueId(),
         sender: 'assistant',
         text: reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -652,7 +667,7 @@ export default function App() {
     if (!text) return;
 
     const userMsg = {
-      id: Date.now(),
+      id: generateUniqueId(),
       sender: 'user',
       text: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -728,7 +743,7 @@ export default function App() {
       }
 
       setAiMessagesClient(prev => [...prev, {
-        id: Date.now(),
+        id: generateUniqueId(),
         sender: 'assistant',
         text: reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -800,7 +815,6 @@ export default function App() {
   
   // Shopping Cart States
   const [cart, setCart] = useState([])
-  const [isCartOpen, setIsCartOpen] = useState(false)
   const [checkoutStatus, setCheckoutStatus] = useState(null)
   
   // Customer Modals
@@ -831,10 +845,8 @@ export default function App() {
   const [saveCartAddressToBook, setSaveCartAddressToBook] = useState(false)
   
   // Payment Method States
-  const [paymentMethod, setPaymentMethod] = useState('COD')
   const [upiPaymentModalDetails, setUpiPaymentModalDetails] = useState(null)
   const [isPaymentReceived, setIsPaymentReceived] = useState(false)
-  const [hoveredCategory, setHoveredCategory] = useState(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [codSuccessDetails, setCodSuccessDetails] = useState(null)
 
@@ -867,7 +879,7 @@ export default function App() {
   }
 
   // Fetch all initial data
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // Products
       const prodRes = await fetch('/api/products')
@@ -904,13 +916,6 @@ export default function App() {
         setDashboardSummary(summaryData)
       }
 
-      // Suggestions
-      const suggRes = await fetch('/api/suggestions')
-      if (suggRes.ok) {
-        const suggData = await suggRes.json()
-        setSuggestions(suggData)
-      }
-
       // Notifications
       const notifRes = await fetch('/api/notifications')
       if (notifRes.ok) {
@@ -924,17 +929,10 @@ export default function App() {
         const orderData = await orderRes.json()
         setOrders(orderData)
       }
-
-      // Subscriptions
-      const subRes = await fetch('/api/subscriptions')
-      if (subRes.ok) {
-        const subData = await subRes.json()
-        setSubscriptionsList(subData)
-      }
-    } catch (error) {
+    } catch {
       showToast('Error fetching database records.', 'danger')
     }
-  }
+  }, [showToast, setProducts, setCategories, setIngredients, setBatches, setDashboardSummary, setNotifications, setOrders])
 
   // Slideshow Carousel State
   const [currentSlide, setCurrentSlide] = useState(0)
@@ -957,13 +955,16 @@ export default function App() {
   ]
 
   useEffect(() => {
-    fetchData()
-  }, [activeTab])
+    const timer = setTimeout(() => {
+      fetchData()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [activeTab, fetchData])
 
   useEffect(() => {
-    if (currentUser && addressBook.length > 0) {
-      const defaultAddr = addressBook.find(a => a.isDefault);
-      if (defaultAddr) {
+    const timer = setTimeout(() => {
+      if (currentUser && addressBook.length > 0) {
+        const defaultAddr = addressBook.find(a => a.isDefault) || addressBook[0];
         setSelectedCartAddressId(String(defaultAddr.id));
         setCartAddressFlat(defaultAddr.flat);
         setCartAddressArea(defaultAddr.area);
@@ -971,22 +972,16 @@ export default function App() {
         setCartAddressCity(defaultAddr.city);
         setCartAddressState(defaultAddr.state);
       } else {
-        setSelectedCartAddressId(String(addressBook[0].id));
-        setCartAddressFlat(addressBook[0].flat);
-        setCartAddressArea(addressBook[0].area);
-        setCartAddressPincode(addressBook[0].pincode);
-        setCartAddressCity(addressBook[0].city);
-        setCartAddressState(addressBook[0].state);
+        setSelectedCartAddressId('new');
+        setCartAddressFlat('');
+        setCartAddressArea('');
+        setCartAddressPincode('');
+        setCartAddressCity('');
+        setCartAddressState('');
       }
-    } else {
-      setSelectedCartAddressId('new');
-      setCartAddressFlat('');
-      setCartAddressArea('');
-      setCartAddressPincode('');
-      setCartAddressCity('');
-      setCartAddressState('');
-    }
-    setSaveCartAddressToBook(false);
+      setSaveCartAddressToBook(false);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [currentUser, addressBook])
 
   useEffect(() => {
@@ -1002,11 +997,6 @@ export default function App() {
 
   }, [upiPaymentModalDetails])
 
-  // Toast notifications helper
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type })
-    setTimeout(() => setToast(null), 4000)
-  }
 
   // ---------------- E-COMMERCE LOGIC ----------------
 
@@ -1073,7 +1063,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Invalid username or password.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during login.', 'danger')
     }
   }
@@ -1117,7 +1107,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Registration failed.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during registration.', 'danger')
     }
   }
@@ -1180,7 +1170,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to update profile.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during profile update.', 'danger')
     }
   }
@@ -1220,7 +1210,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to change password.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during password update.', 'danger')
     } finally {
       setIsUpdatingPassword(false)
@@ -1275,7 +1265,7 @@ export default function App() {
     // Auto-save new address to Address Book if customer checked the box
     if (currentUser && selectedCartAddressId === 'new' && saveCartAddressToBook) {
       const newAddr = {
-        id: Date.now(),
+        id: generateUniqueId(),
         flat: cartAddressFlat.trim(),
         area: cartAddressArea.trim(),
         pincode: cartAddressPincode.trim(),
@@ -1286,8 +1276,6 @@ export default function App() {
       const newBook = [...addressBook, newAddr]
       saveAddressBook(newBook)
     }
-    
-    setPaymentMethod(activeMethod);
     
     try {
       if (activeMethod === 'Razorpay') {
@@ -1344,7 +1332,7 @@ export default function App() {
                   showToast(verifyResult.error || 'Payment verification failed.', 'danger');
                   setCheckoutStatus(null);
                 }
-              } catch (err) {
+              } catch {
                 showToast('Error verifying payment.', 'danger');
                 setCheckoutStatus(null);
               }
@@ -1362,7 +1350,7 @@ export default function App() {
               return;
           }
           const rzp1 = new window.Razorpay(options);
-          rzp1.on('payment.failed', function (paymentResponse) {
+          rzp1.on('payment.failed', function () {
             showToast('Payment failed or cancelled.', 'danger');
             setCheckoutStatus(null);
           });
@@ -1409,7 +1397,7 @@ export default function App() {
         showToast(result.error || 'Checkout failed due to insufficient stock.', 'danger')
         setTimeout(() => setCheckoutStatus(null), 3000)
       }
-    } catch (err) {
+    } catch {
       setCheckoutStatus('failed')
       showToast('Connection error during checkout.', 'danger')
       setTimeout(() => setCheckoutStatus(null), 3000)
@@ -1435,7 +1423,7 @@ export default function App() {
         setSubscriptionProduct(null)
         fetchData()
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to create subscription.', 'danger')
     }
   }
@@ -1480,7 +1468,7 @@ export default function App() {
       } else {
         showToast(result.error || 'Order placement failed.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Order submission failed.', 'danger')
     }
   }
@@ -1501,7 +1489,7 @@ export default function App() {
       } else {
         showToast(result.error || 'Failed to fulfill order.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during order fulfillment.', 'danger')
     }
   }
@@ -1574,7 +1562,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to create product.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during product creation.', 'danger')
     }
   }
@@ -1676,7 +1664,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to update product.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during product update.', 'danger')
     }
   }
@@ -1712,7 +1700,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to add ingredient.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during ingredient addition.', 'danger')
     }
   }
@@ -1759,7 +1747,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to update ingredient.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Connection error during ingredient update.', 'danger')
     }
   }
@@ -1886,7 +1874,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to create batch.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to connect to backend API.', 'danger')
     }
   }
@@ -1911,7 +1899,7 @@ export default function App() {
         setRefillQty('')
         fetchData()
       }
-    } catch (err) {
+    } catch {
       showToast('Refill request failed.', 'danger')
     }
   }
@@ -1924,7 +1912,7 @@ export default function App() {
         const data = await res.json()
         setSelectedBatchForDetail(data)
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to retrieve batch detail logs.', 'danger')
     }
   }
@@ -1945,7 +1933,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to delete batch.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to delete batch.', 'danger')
     }
   }
@@ -1975,7 +1963,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to delete product.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to delete product.', 'danger')
     }
   }
@@ -1996,7 +1984,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to delete raw material.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to delete raw material.', 'danger')
     }
   }
@@ -2017,7 +2005,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to delete category.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to delete category.', 'danger')
     }
   }
@@ -2038,7 +2026,7 @@ export default function App() {
       } else {
         showToast(data.error || 'Failed to delete order.', 'danger')
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to delete order.', 'danger')
     }
   }
@@ -4211,8 +4199,7 @@ export default function App() {
             categoryStats[catName].revenue += p.revenue;
           });
 
-          const categoryRevenueList = Object.values(categoryStats).sort((a, b) => b.revenue - a.revenue);
-          const maxCategoryRevenue = Math.max(...categoryRevenueList.map(c => c.revenue), 1) || 1;
+          // Unused categoryRevenueList and maxCategoryRevenue variables removed
 
           // SVG line/bar dimensions
           const padding = { top: 20, right: 20, bottom: 35, left: 55 };
@@ -4321,7 +4308,21 @@ export default function App() {
               <div className="admin-content-pane" style={{ flex: 1, minWidth: 0 }}>
 {adminSubTab === 'dashboard' && (
                 <>
-                                    <div className="dashboard-grid">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>Dashboard Overview</h2>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="btn btn-secondary btn-sm" onClick={exportInventoryCSV}>
+                        Export Inventory
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={exportWastageCSV}>
+                        Export Wastage
+                      </button>
+                      <button className="btn btn-primary btn-sm" onClick={printReport}>
+                        Print Report
+                      </button>
+                    </div>
+                  </div>
+                  <div className="dashboard-grid">
               <div 
                 className="glass-card stat-card" 
                 style={{ borderLeft: '3px solid var(--accent-secondary)', cursor: 'pointer' }}
@@ -4732,7 +4733,7 @@ export default function App() {
                               const d = new Date(formMfgDate)
                               d.setDate(d.getDate() + parseInt(formShelfLife))
                               return formatDateDisplay(d.toISOString().split('T')[0])
-                            } catch (e) { return 'N/A' }
+                            } catch { return 'N/A' }
                           })()}
                         </strong>
                       </div>
