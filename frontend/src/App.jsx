@@ -492,6 +492,7 @@ export default function App() {
   const [notifications, setNotifications] = useState([])
   const [orders, setOrders] = useState([])
   const [newOrderAlert, setNewOrderAlert] = useState(0)
+  const [lastSeenOrderCount, setLastSeenOrderCount] = useState(null)
   const [selectedPrices, setSelectedPrices] = useState({}) // product_id -> selected price index
   
   // AI Assistant States
@@ -962,6 +963,7 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [activeTab, fetchData])
 
+  // Poll for database updates every 3 seconds if admin is logged in
   useEffect(() => {
     if (currentUser && currentUser.role === 'admin') {
       const interval = setInterval(async () => {
@@ -969,13 +971,7 @@ export default function App() {
           const orderRes = await fetch('/api/orders')
           if (orderRes.ok) {
             const orderData = await orderRes.json()
-            setOrders(prev => {
-              if (orderData.length > prev.length && prev.length > 0) {
-                const diff = orderData.length - prev.length;
-                setNewOrderAlert(prevAlert => prevAlert + diff);
-              }
-              return orderData
-            })
+            setOrders(orderData)
           }
           const summaryRes = await fetch('/api/dashboard/summary')
           if (summaryRes.ok) {
@@ -990,10 +986,31 @@ export default function App() {
         } catch (e) {
           console.error("Polling error:", e)
         }
-      }, 10000)
+      }, 3000)
       return () => clearInterval(interval)
     }
   }, [currentUser])
+
+  // Track increases in order count to trigger top-right popup notification
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'admin') {
+      if (orders.length > 0) {
+        if (lastSeenOrderCount === null) {
+          setLastSeenOrderCount(orders.length)
+        } else if (orders.length > lastSeenOrderCount) {
+          const diff = orders.length - lastSeenOrderCount;
+          setNewOrderAlert(prev => prev + diff)
+          setLastSeenOrderCount(orders.length)
+        } else if (orders.length < lastSeenOrderCount) {
+          // Keep count synced if an order is deleted
+          setLastSeenOrderCount(orders.length)
+        }
+      }
+    } else {
+      setLastSeenOrderCount(null)
+      setNewOrderAlert(0)
+    }
+  }, [orders, currentUser, lastSeenOrderCount])
 
   useEffect(() => {
     const timer = setTimeout(() => {
