@@ -957,9 +957,19 @@ def get_products():
             p_dict = dict(p)
             p_id = p_dict['product_id']
             
-            # Get prices
+            # Get prices with size-specific stock
             prices = conn.execute("SELECT * FROM prices WHERE product_id = ?", (p_id,)).fetchall()
-            p_dict['prices'] = [dict(pr) for pr in prices]
+            p_dict['prices'] = []
+            for pr in prices:
+                pr_dict = dict(pr)
+                pr_id = pr_dict['price_id']
+                size_stock_row = conn.execute("""
+                    SELECT SUM(current_stock) as size_stock 
+                    FROM food_batches 
+                    WHERE product_id = ? AND price_id = ? AND status IN ('Active', 'Near Expiry')
+                """, (p_id, pr_id)).fetchone()
+                pr_dict['stock'] = int(size_stock_row['size_stock'] or 0)
+                p_dict['prices'].append(pr_dict)
             
             # Get recipes
             recipes = conn.execute("SELECT * FROM recipes WHERE product_id = ?", (p_id,)).fetchall()

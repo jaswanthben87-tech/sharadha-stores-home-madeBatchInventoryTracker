@@ -1296,6 +1296,7 @@ export default function App() {
         
         const result = await response.json();
         if (response.ok) {
+          let paymentSuccessful = false;
           const options = {
             key: result.razorpay_key_id,
             amount: result.total_amount * 100,
@@ -1317,6 +1318,7 @@ export default function App() {
                 });
                 const verifyResult = await verifyResponse.json();
                 if (verifyResponse.ok) {
+                  paymentSuccessful = true;
                   setUpiPaymentModalDetails({ order_id: result.order_id });
                   setIsPaymentReceived(true);
                   setCart([]);
@@ -1342,7 +1344,20 @@ export default function App() {
               email: currentUser ? currentUser.email : '',
               contact: currentUser ? currentUser.phone : ''
             },
-            theme: { color: '#2ecc71' }
+            theme: { color: '#2ecc71' },
+            modal: {
+              ondismiss: async function () {
+                if (!paymentSuccessful) {
+                  showToast('Payment cancelled. Order was not placed.', 'danger');
+                  setCheckoutStatus(null);
+                  try {
+                    await fetch(`/api/orders/${result.order_id}`, { method: 'DELETE' });
+                  } catch (err) {
+                    console.error('Error deleting cancelled order:', err);
+                  }
+                }
+              }
+            }
           };
           if (!window.Razorpay) {
               showToast('Razorpay SDK failed to load. Are you offline?', 'danger');
@@ -1350,9 +1365,16 @@ export default function App() {
               return;
           }
           const rzp1 = new window.Razorpay(options);
-          rzp1.on('payment.failed', function () {
-            showToast('Payment failed or cancelled.', 'danger');
-            setCheckoutStatus(null);
+          rzp1.on('payment.failed', async function () {
+            if (!paymentSuccessful) {
+              showToast('Payment failed.', 'danger');
+              setCheckoutStatus(null);
+              try {
+                await fetch(`/api/orders/${result.order_id}`, { method: 'DELETE' });
+              } catch (err) {
+                console.error('Error deleting failed order:', err);
+              }
+            }
           });
           rzp1.open();
         } else {
@@ -3898,13 +3920,13 @@ export default function App() {
                                         {/* Stock Indicator */}
                                         <div className="product-stock-status">
                                           <span className={`stock-dot ${
-                                            p.total_stock > 5 ? 'in-stock' : p.total_stock > 0 ? 'low-stock' : 'out-of-stock'
+                                            (activePrice ? activePrice.stock : 0) > 5 ? 'in-stock' : (activePrice ? activePrice.stock : 0) > 0 ? 'low-stock' : 'out-of-stock'
                                           }`}></span>
                                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                            {p.total_stock > 5 
-                                              ? `In Stock (${p.total_stock} units)` 
-                                              : p.total_stock > 0 
-                                                ? `Low Stock (${p.total_stock} units left!)` 
+                                            {activePrice && activePrice.stock > 5 
+                                              ? `In Stock (${activePrice.stock} of ${activePrice.quantity_description})` 
+                                              : activePrice && activePrice.stock > 0 
+                                                ? `Low Stock (${activePrice.stock} of ${activePrice.quantity_description} left!)` 
                                                 : 'Out of Stock'}
                                           </span>
                                         </div>
@@ -3943,10 +3965,10 @@ export default function App() {
                                           <button
                                             className="btn btn-primary btn-sm"
                                             onClick={() => handleAddToCart(p, activePrice)}
-                                            disabled={p.total_stock <= 0}
+                                            disabled={!activePrice || activePrice.stock <= 0}
                                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '0.4rem 0.25rem', fontSize: '0.75rem' }}
                                           >
-                                            {p.total_stock <= 0 ? 'Sold Out' : (
+                                            {(!activePrice || activePrice.stock <= 0) ? 'Sold Out' : (
                                               <>
                                                 <svg style={{ width: '12px', height: '12px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
                                                 Add
@@ -3956,11 +3978,14 @@ export default function App() {
                                           <button
                                             className="btn btn-secondary btn-sm"
                                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '0.4rem 0.25rem', fontSize: '0.75rem' }}
+                                            disabled={!activePrice || activePrice.stock <= 0}
                                             onClick={() => {
                                               const selectedPriceIdx = selectedPrices[p.product_id] || 0
                                               const activePrice = p.prices[selectedPriceIdx] || p.prices[0]
-                                              handleAddToCart(p, activePrice)
-                                              setActiveTab('cart')
+                                              if (activePrice && activePrice.stock > 0) {
+                                                handleAddToCart(p, activePrice)
+                                                setActiveTab('cart')
+                                              }
                                             }}
                                           >
                                             <svg style={{ width: '12px', height: '12px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
@@ -4675,7 +4700,9 @@ export default function App() {
                       </div>
 
                       <div className="form-group">
-                        <label className="form-label">Quantity Made (Units) *</label>
+                        <label className="form-label">
+                          Quantity Made ({formProductPrices.find(pr => pr.price_id === parseInt(formPriceId))?.quantity_description || 'Units'}) *
+                        </label>
                         <input
                           type="number"
                           className="form-input"
@@ -4837,7 +4864,7 @@ export default function App() {
                         <td>{b.pack_size || 'N/A'}</td>
                         <td>{formatDateDisplay(b.manufacturing_date)}</td>
                         <td>{formatDateDisplay(b.expiry_date)}</td>
-                        <td><strong>{b.current_stock} / {b.quantity_made} units</strong></td>
+                        <td><strong>{b.current_stock} / {b.quantity_made} {b.pack_size ? `(${b.pack_size})` : 'units'}</strong></td>
                         <td>
                           <span className={`badge ${
                             b.status === 'Active' ? 'badge-success' : 
