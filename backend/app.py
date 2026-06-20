@@ -801,11 +801,11 @@ def handle_login():
 def handle_register():
     try:
         data = request.get_json() or {}
-        name = data.get('name', '').strip()
-        email = data.get('email', '').strip()
-        password = data.get('password', '').strip()
-        phone = data.get('phone', '').strip()
-        address = data.get('address', '').strip()
+        name = (data.get('name') or '').strip()
+        email = (data.get('email') or '').strip()
+        password = (data.get('password') or '').strip()
+        phone = (data.get('phone') or '').strip()
+        address = (data.get('address') or '').strip()
         
         if not name or not email or not password or not phone or not address:
             return jsonify({"error": "All fields (name, email, password, phone, address) are required."}), 400
@@ -839,10 +839,10 @@ def update_customer_profile():
     try:
         data = request.get_json() or {}
         customer_id = data.get('customer_id')
-        name = data.get('name', '').strip()
-        email = data.get('email', '').strip()
-        phone = data.get('phone', '').strip()
-        address = data.get('address', '').strip()
+        name = (data.get('name') or '').strip()
+        email = (data.get('email') or '').strip()
+        phone = (data.get('phone') or '').strip()
+        address = (data.get('address') or '').strip()
         
         if not customer_id or not name or not email or not phone:
             return jsonify({"error": "Missing required fields."}), 400
