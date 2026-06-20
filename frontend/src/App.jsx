@@ -4547,6 +4547,66 @@ export default function App() {
                 </div>
                 <div className="stat-icon" style={{ color: 'var(--text-muted)' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '24px', height: '24px' }}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></div>
               </div>
+
+              <div 
+                className={`glass-card stat-card ${newOrderAlert > 0 ? 'animate-pulse-glow' : ''}`}
+                style={{ 
+                  borderLeft: newOrderAlert > 0 ? '3px solid var(--accent-danger)' : '3px solid var(--accent-primary)',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+                onClick={() => {
+                  setNewOrderAlert(0);
+                  setAdminSubTab('orders');
+                }}
+              >
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Message Box Alerts</div>
+                  <div className="stat-num" style={{ color: newOrderAlert > 0 ? 'var(--accent-danger)' : 'var(--text-main)' }}>
+                    {newOrderAlert}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>New Order Notifications</div>
+                </div>
+                <div className="stat-icon" style={{ color: newOrderAlert > 0 ? 'var(--accent-danger)' : 'var(--text-muted)' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '24px', height: '24px' }}>
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                </div>
+
+                {/* Popup alert on the dashboard card itself */}
+                {newOrderAlert > 0 && (
+                  <div
+                    className="animate-slide-up"
+                    style={{
+                      position: 'absolute',
+                      bottom: '-25px',
+                      right: '15px',
+                      background: 'var(--bg-tertiary, #192239)',
+                      border: '1px solid var(--accent-danger)',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      boxShadow: '0 6px 18px rgba(0,0,0,0.5)',
+                      zIndex: 10,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      color: 'var(--accent-danger)',
+                      animation: 'scaleUp 0.2s ease-out'
+                    }}
+                  >
+                    <div style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: 'var(--accent-danger, #ff5a5f)',
+                      animation: 'pulse 1.2s infinite'
+                    }} />
+                    <span>!</span>
+                  </div>
+                )}
+              </div>
             </div>
                   
                   <div className="dashboard-sections" style={{ marginTop: '2rem' }}>
@@ -6801,8 +6861,14 @@ export default function App() {
           {/* Chatbot Trigger Bubble */}
           <button
             className={`chat-widget-trigger ${isChatOpen ? 'active' : ''}`}
-            onClick={() => setIsChatOpen(!isChatOpen)}
+            onClick={() => {
+              setIsChatOpen(!isChatOpen);
+              if (currentUser.role === 'admin') {
+                setNewOrderAlert(0);
+              }
+            }}
             title="AI Assistant"
+            style={{ position: 'relative' }}
           >
             {isChatOpen ? (
               <svg style={{ width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -6813,6 +6879,31 @@ export default function App() {
               <svg style={{ width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               </svg>
+            )}
+
+            {/* Red badge overlay for admin new order count */}
+            {currentUser && currentUser.role === 'admin' && newOrderAlert > 0 && !isChatOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  background: 'var(--accent-danger, #ff5a5f)',
+                  color: '#ffffff',
+                  fontSize: '0.7rem',
+                  fontWeight: 'bold',
+                  borderRadius: '50%',
+                  width: '18px',
+                  height: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1.5px solid var(--bg-primary, #0f172a)',
+                  boxShadow: '0 0 8px rgba(255, 90, 95, 0.8)'
+                }}
+              >
+                {newOrderAlert}
+              </div>
             )}
           </button>
 
