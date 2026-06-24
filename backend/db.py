@@ -210,6 +210,7 @@ def init_db():
             
         if IS_POSTGRES:
             schema_sql = re.sub(r'INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT', 'SERIAL PRIMARY KEY', schema_sql, flags=re.IGNORECASE)
+            schema_sql = re.sub(r'TEXT\s+DEFAULT\s+CURRENT_TIMESTAMP', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP', schema_sql, flags=re.IGNORECASE)
             conn.executescript(schema_sql)
         elif IS_MYSQL:
             schema_sql = re.sub(r'INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT', 'INTEGER PRIMARY KEY AUTO_INCREMENT', schema_sql, flags=re.IGNORECASE)
