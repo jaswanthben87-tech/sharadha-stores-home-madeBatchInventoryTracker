@@ -436,8 +436,12 @@ def send_email_alert_async(recipient, message, html_message=None):
     # Send WhatsApp alert asynchronously
     threading.Thread(target=send_whatsapp_alert, args=(alert_phone, message)).start()
 
-def parse_date(date_str):
-    return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+def parse_date(date_val):
+    if isinstance(date_val, datetime.date):
+        return date_val
+    if isinstance(date_val, datetime.datetime):
+        return date_val.date()
+    return datetime.datetime.strptime(str(date_val), "%Y-%m-%d").date()
 
 def update_all_batch_statuses(conn, current_date=None):
     """Dynamically updates batch status based on expiry date and stock levels."""
@@ -730,12 +734,18 @@ def run_background_scheduler():
     import time
     time.sleep(5)  # Wait for Flask app to boot up fully
     while True:
+        conn = None
         try:
             conn = get_db()
             update_all_batch_statuses(conn)
-            conn.close()
         except Exception as e:
             print(f"Background Scheduler Error: {str(e)}")
+        finally:
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
         time.sleep(60) # Run check once every 60 seconds
 
 # Global try/catch error handling
