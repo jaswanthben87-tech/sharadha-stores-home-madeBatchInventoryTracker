@@ -246,8 +246,8 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS admin_credentials (
                     username VARCHAR(255) PRIMARY KEY,
                     password TEXT NOT NULL,
-                    name TEXT DEFAULT 'Admin Manager',
-                    staff_role TEXT DEFAULT 'Super Admin'
+                    name VARCHAR(255) DEFAULT 'Admin Manager',
+                    staff_role VARCHAR(255) DEFAULT 'Super Admin'
                 );
             """)
             cur.close()
