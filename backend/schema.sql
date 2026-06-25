@@ -112,6 +112,11 @@ CREATE TABLE IF NOT EXISTS orders (
     order_date TEXT DEFAULT CURRENT_TIMESTAMP,
     total_amount REAL NOT NULL,
     status TEXT NOT NULL, -- "Pending", "Paid", "Failed", "Cancelled"
+    order_type TEXT DEFAULT 'standard',
+    tax_amount REAL DEFAULT 0.0,
+    discount_amount REAL DEFAULT 0.0,
+    dispatched_date TEXT,
+    delivered_date TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers (customer_id)
 );
 
