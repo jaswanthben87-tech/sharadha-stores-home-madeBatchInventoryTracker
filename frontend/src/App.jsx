@@ -229,7 +229,7 @@ export default function App() {
   const saveAddressBook = async (newBook) => {
     const serialized = JSON.stringify(newBook)
     try {
-      const res = await fetch('/api/customers/update', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/customers/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -974,49 +974,49 @@ export default function App() {
   const fetchData = useCallback(async () => {
     try {
       // Products
-      const prodRes = await fetch('/api/products')
+      const prodRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/products')
       if (prodRes.ok) {
         const prodData = await prodRes.json()
         setProducts(prodData)
       }
 
       // Categories
-      const catRes = await fetch('/api/categories')
+      const catRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/categories')
       if (catRes.ok) {
         const catData = await catRes.json()
         setCategories(catData)
       }
 
       // Ingredients
-      const ingRes = await fetch('/api/ingredients')
+      const ingRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/ingredients')
       if (ingRes.ok) {
         const ingData = await ingRes.json()
         setIngredients(ingData)
       }
 
       // Batches
-      const batchRes = await fetch('/api/batches/list')
+      const batchRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/batches/list')
       if (batchRes.ok) {
         const batchData = await batchRes.json()
         setBatches(batchData)
       }
 
       // Summary
-      const summaryRes = await fetch('/api/dashboard/summary')
+      const summaryRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/dashboard/summary')
       if (summaryRes.ok) {
         const summaryData = await summaryRes.json()
         setDashboardSummary(summaryData)
       }
 
       // Notifications
-      const notifRes = await fetch('/api/notifications')
+      const notifRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/notifications')
       if (notifRes.ok) {
         const notifData = await notifRes.json()
         setNotifications(notifData)
       }
 
       // Customer Orders
-      const orderRes = await fetch('/api/orders')
+      const orderRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/orders')
       if (orderRes.ok) {
         const orderData = await orderRes.json()
         setOrders(orderData)
@@ -1024,7 +1024,7 @@ export default function App() {
       
       // Staff Members (Admin only)
       if (currentUser && currentUser.role === 'admin') {
-        const staffRes = await fetch('/api/admin/staff')
+        const staffRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/admin/staff')
         if (staffRes.ok) {
           const staffData = await staffRes.json()
           setStaffMembers(staffData)
@@ -1067,17 +1067,17 @@ export default function App() {
     if (currentUser && currentUser.role === 'admin') {
       const interval = setInterval(async () => {
         try {
-          const orderRes = await fetch('/api/orders')
+          const orderRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/orders')
           if (orderRes.ok) {
             const orderData = await orderRes.json()
             setOrders(orderData)
           }
-          const summaryRes = await fetch('/api/dashboard/summary')
+          const summaryRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/dashboard/summary')
           if (summaryRes.ok) {
             const summaryData = await summaryRes.json()
             setDashboardSummary(summaryData)
           }
-          const notifRes = await fetch('/api/notifications')
+          const notifRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/notifications')
           if (notifRes.ok) {
             const notifData = await notifRes.json()
             setNotifications(notifData)
@@ -1295,7 +1295,7 @@ export default function App() {
     e.preventDefault()
     if (!loginUsername || !loginPassword) return
     try {
-      const res = await fetch('/api/login', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1335,7 +1335,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch('/api/register', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1373,7 +1373,7 @@ export default function App() {
     e.preventDefault()
     if (!forgotPasswordEmail) return
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotPasswordEmail })
@@ -1402,7 +1402,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1438,7 +1438,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch('/api/admin/staff', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/admin/staff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1462,7 +1462,7 @@ export default function App() {
         setRegisterAddress('')
         setStaffRole('Inventory Manager')
         // Refresh staff list
-        const staffRes = await fetch('/api/admin/staff')
+        const staffRes = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/admin/staff')
         if (staffRes.ok) {
           const staffData = await staffRes.json()
           setStaffMembers(staffData)
@@ -1505,7 +1505,7 @@ export default function App() {
     const combinedName = (settingsFirstName.trim() + " " + settingsLastName.trim()).trim()
     
     try {
-      const res = await fetch('/api/customers/update', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/customers/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1553,7 +1553,7 @@ export default function App() {
     }
     setIsUpdatingPassword(true)
     try {
-      const res = await fetch('/api/change-password', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1641,7 +1641,7 @@ export default function App() {
     
     try {
       if (activeMethod === 'Razorpay') {
-        const response = await fetch('/api/orders/process', {
+        const response = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/orders/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1669,7 +1669,7 @@ export default function App() {
             order_id: result.razorpay_order_id,
             handler: async function (paymentResponse) {
               try {
-                const verifyResponse = await fetch('/api/razorpay/verify', {
+                const verifyResponse = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/razorpay/verify', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -1714,7 +1714,7 @@ export default function App() {
                   showToast('Payment cancelled. Order was not placed.', 'danger');
                   setCheckoutStatus(null);
                   try {
-                    await fetch(`/api/orders/${result.order_id}`, { method: 'DELETE' });
+                    await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/orders/${result.order_id}`, { method: 'DELETE' });
                   } catch (err) {
                     console.error('Error deleting cancelled order:', err);
                   }
@@ -1733,7 +1733,7 @@ export default function App() {
               showToast('Payment failed.', 'danger');
               setCheckoutStatus(null);
               try {
-                await fetch(`/api/orders/${result.order_id}`, { method: 'DELETE' });
+                await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/orders/${result.order_id}`, { method: 'DELETE' });
               } catch (err) {
                 console.error('Error deleting failed order:', err);
               }
@@ -1749,7 +1749,7 @@ export default function App() {
       }
 
       // Cash on Delivery
-      const response = await fetch('/api/orders/process', {
+      const response = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/orders/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1808,7 +1808,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/orders/process', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/orders/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1844,7 +1844,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch(`/api/orders/fulfill/${orderId}`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/orders/fulfill/${orderId}`, {
         method: 'POST'
       })
       const result = await res.json()
@@ -1901,7 +1901,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/products/create', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/products/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2015,7 +2015,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`/api/products/edit/${editProductId}`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/products/edit/${editProductId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2044,7 +2044,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/ingredients/create', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/ingredients/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2094,7 +2094,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`/api/ingredients/edit/${editIngredientId}`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/ingredients/edit/${editIngredientId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2205,7 +2205,7 @@ export default function App() {
 
     setFormErrors({})
     try {
-      const res = await fetch('/api/batches/create', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/batches/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2250,7 +2250,7 @@ export default function App() {
     if (!refillIngredient || !refillQty || parseFloat(refillQty) <= 0) return
     
     try {
-      const res = await fetch('/api/ingredients/refill', {
+      const res = await fetch('https://batch-inventory-tracker-i31z.vercel.app/api/ingredients/refill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2272,7 +2272,7 @@ export default function App() {
   // Open specific batch action logs and orders consumption details
   const openBatchDetails = async (batchId) => {
     try {
-      const res = await fetch(`/api/batches/detail/${batchId}`)
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/batches/detail/${batchId}`)
       if (res.ok) {
         const data = await res.json()
         setSelectedBatchForDetail(data)
@@ -2288,7 +2288,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch(`/api/batches/delete/${batchId}`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/batches/delete/${batchId}`, {
         method: 'DELETE'
       })
       const data = await res.json()
@@ -2309,7 +2309,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch(`/api/products/delete/${productId}`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/products/delete/${productId}`, {
         method: 'DELETE'
       })
       const data = await res.json()
@@ -2339,7 +2339,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch(`/api/ingredients/delete/${ingredientId}`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/ingredients/delete/${ingredientId}`, {
         method: 'DELETE'
       })
       const data = await res.json()
@@ -2360,7 +2360,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch(`/api/categories/delete/${categoryId}`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/categories/delete/${categoryId}`, {
         method: 'DELETE'
       })
       const data = await res.json()
@@ -2381,7 +2381,7 @@ export default function App() {
       return
     }
     try {
-      const res = await fetch(`/api/orders/${orderId}`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/orders/${orderId}`, {
         method: 'DELETE'
       })
       const data = await res.json()
@@ -2398,7 +2398,7 @@ export default function App() {
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
+      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -6723,7 +6723,7 @@ export default function App() {
                                   }}>Edit</button>
                                   <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger-color)' }} onClick={async () => {
                                     if(window.confirm('Delete this staff member?')) {
-                                      const res = await fetch(`/api/admin/staff/${staff.username}`, { method: 'DELETE' });
+                                      const res = await fetch(`https://batch-inventory-tracker-i31z.vercel.app/api/admin/staff/${staff.username}`, { method: 'DELETE' });
                                       if(res.ok) {
                                         setStaffMembers(staffMembers.filter(s => s.username !== staff.username));
                                         showToast('Staff deleted.', 'success');
