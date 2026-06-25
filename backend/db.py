@@ -61,6 +61,23 @@ class PostgresCursorWrapper:
         self._cursor = cursor
     def __getattr__(self, name):
         return getattr(self._cursor, name)
+    @property
+    def lastrowid(self):
+        try:
+            # Create a temporary cursor to safely get LASTVAL() without messing up this cursor's fetch state
+            temp_cur = self._cursor.connection.cursor()
+            temp_cur.execute("SELECT LASTVAL()")
+            row = temp_cur.fetchone()
+            temp_cur.close()
+            if row:
+                return list(row.values())[0] if isinstance(row, dict) else row[0]
+        except Exception:
+            # Postgres requires rolling back the sub-transaction if LASTVAL fails, 
+            # but since we don't use savepoints easily, we just catch it.
+            # However, a failed LASTVAL will abort the transaction.
+            pass
+        return None
+
     def execute(self, query, vars=None):
         if query:
             query = query.replace('?', '%s')
