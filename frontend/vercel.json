@@ -1,8 +1,13 @@
 {
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/:match*",
-      "destination": "https://batch-inventory-tracker-i31z.vercel.app/api/:match*"
+      "src": "/api/(.*)",
+      "dest": "https://batch-inventory-tracker-i31z.vercel.app/api/$1"
+    },
+    { "handle": "filesystem" },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
