@@ -1,12 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://batch-inventory-tracker-i31z.vercel.app/api/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/"
+      "source": "/api/:match*",
+      "destination": "https://batch-inventory-tracker-i31z.vercel.app/api/:match*"
     }
   ]
 }
